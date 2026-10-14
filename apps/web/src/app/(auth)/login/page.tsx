@@ -1,37 +1,40 @@
-import Link from "next/link";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@careertrack/ui/components/card";
+import { Suspense } from "react";
+import type { Metadata } from "next";
+
+import { LoginForm } from "@/features/auth/components/login-form";
+
+export const metadata: Metadata = {
+  title: "Sign In | CareerTrack",
+  description: "Sign in to your CareerTrack account.",
+};
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Welcome Back</CardTitle>
-          <CardDescription>
-            Login to your CareerTrack account
-          </CardDescription>
-        </CardHeader>
+    <div className="w-full">
+      <div className="mb-9 space-y-3">
+        <p className="text-xs font-semibold tracking-[0.16em] text-primary">
+          WELCOME BACK — 02
+        </p>
 
-        <CardContent>
+        <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+          Welcome back
+        </h1>
+
+        <p className="text-sm leading-6 text-muted-foreground">
+          Sign in to continue your journey.
+        </p>
+      </div>
+
+      <Suspense
+        fallback={
           <p className="text-sm text-muted-foreground">
-            Login form will be implemented here.
+            Loading sign in...
           </p>
-
-          <p className="mt-6 text-sm">
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="font-medium underline">
-              Register
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </main>
+        }
+      >
+        <LoginForm />
+      </Suspense>
+    </div>
   );
 }
