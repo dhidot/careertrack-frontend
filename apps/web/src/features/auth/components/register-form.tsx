@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -96,18 +97,18 @@ function getResponseMessage(body: unknown): string | null {
 // ==========================================
 
 export function RegisterForm() {
+  const router = useRouter();
+
   // Password visibility
   const [showPassword, setShowPassword] = useState(false);
 
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
-  // Backend response states
+  // Backend response state
   const [serverError, setServerError] = useState<
     string | null
   >(null);
-
-  const [registered, setRegistered] = useState(false);
 
   // ========================================
   // REACT HOOK FORM
@@ -117,10 +118,7 @@ export function RegisterForm() {
     register,
     handleSubmit,
     reset,
-    formState: {
-      errors,
-      isSubmitting,
-    },
+    formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     mode: "onTouched",
@@ -140,7 +138,6 @@ export function RegisterForm() {
 
   async function onSubmit(values: RegisterFormValues) {
     setServerError(null);
-    setRegistered(false);
 
     // Match Spring Boot RegisterRequest DTO.
     // Do not send confirmPassword or role.
@@ -186,12 +183,18 @@ export function RegisterForm() {
         return;
       }
 
-      // Registration success.
-      // Account remains pending email verification.
-      setRegistered(true);
+      // ====================================
+      // REGISTRATION SUCCESS
+      // ====================================
+
+      // Account remains PENDING_VERIFICATION.
+      // No automatic login or session creation.
 
       // Clear sensitive form values.
       reset();
+
+      // Redirect to Login with a success notice.
+      router.replace("/login?registered=1");
     } catch {
       setServerError(
         "Unable to connect to the server. Please try again."
@@ -208,7 +211,6 @@ export function RegisterForm() {
       onSubmit={handleSubmit(onSubmit)}
       onChange={() => {
         setServerError(null);
-        setRegistered(false);
       }}
       noValidate
       className="space-y-5"
@@ -292,9 +294,7 @@ export function RegisterForm() {
         <div className="relative">
           <Input
             id="password"
-            type={
-              showPassword ? "text" : "password"
-            }
+            type={showPassword ? "text" : "password"}
             placeholder="Create a password"
             autoComplete="new-password"
             maxLength={100}
@@ -413,16 +413,14 @@ export function RegisterForm() {
 
       <Button
         type="submit"
-        disabled={isSubmitting || registered}
+        disabled={isSubmitting}
         aria-busy={isSubmitting}
         className="mt-7 h-12 w-full rounded-lg text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span>
           {isSubmitting
             ? "Creating account..."
-            : registered
-              ? "Account created"
-              : "Create account"}
+            : "Create account"}
         </span>
 
         <span aria-hidden="true">
@@ -442,38 +440,6 @@ export function RegisterForm() {
           <div className="flex items-start gap-2">
             <span aria-hidden="true">!</span>
             <span>{serverError}</span>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================
-          REGISTRATION SUCCESS
-      ===================================== */}
-
-      {registered && (
-        <div
-          role="status"
-          className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-4 text-sm leading-relaxed text-foreground"
-        >
-          <div className="flex items-start gap-3">
-            <span
-              aria-hidden="true"
-              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground"
-            >
-              ✓
-            </span>
-
-            <div className="space-y-1">
-              <p className="font-semibold">
-                Account created successfully!
-              </p>
-
-              <p className="text-muted-foreground">
-                Your account is pending email
-                verification. You will be able to
-                sign in once it is verified.
-              </p>
-            </div>
           </div>
         </div>
       )}

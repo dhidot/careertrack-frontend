@@ -22,6 +22,24 @@ import userEvent from "@testing-library/user-event";
 
 import { RegisterForm } from "./register-form";
 
+// ==========================================
+// MOCK NEXT.JS NAVIGATION
+// ==========================================
+
+const { replaceMock } = vi.hoisted(() => ({
+  replaceMock: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    replace: replaceMock,
+  }),
+}));
+
+// ==========================================
+// MOCK FETCH
+// ==========================================
+
 const fetchMock = vi.fn<typeof fetch>();
 
 function mockResponse(
@@ -34,6 +52,10 @@ function mockResponse(
     json: async () => data,
   } as Response;
 }
+
+// ==========================================
+// TEST HELPERS
+// ==========================================
 
 async function fillValidForm(
   user: ReturnType<typeof userEvent.setup>
@@ -49,7 +71,9 @@ async function fillValidForm(
   );
 
   await user.type(
-    screen.getByLabelText("Password", { exact: true }),
+    screen.getByLabelText("Password", {
+      exact: true,
+    }),
     "Password123"
   );
 
@@ -59,9 +83,25 @@ async function fillValidForm(
   );
 }
 
+async function submitForm(
+  user: ReturnType<typeof userEvent.setup>
+) {
+  await user.click(
+    screen.getByRole("button", {
+      name: /create account/i,
+    })
+  );
+}
+
+// ==========================================
+// REGISTER FORM TESTS
+// ==========================================
+
 describe("RegisterForm", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    replaceMock.mockReset();
+
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -71,19 +111,22 @@ describe("RegisterForm", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows validation errors and red border on invalid submit", async () => {
+  // ========================================
+  // FORM VALIDATION
+  // ========================================
+
+  it("shows validation errors for invalid inputs", async () => {
     const user = userEvent.setup();
 
     render(<RegisterForm />);
 
-    await user.click(
-      screen.getByRole("button", {
-        name: /create account/i,
-      })
-    );
+    await submitForm(user);
 
-    const username = screen.getByLabelText("Username");
-    const email = screen.getByLabelText("Email address");
+    const username =
+      screen.getByLabelText("Username");
+
+    const email =
+      screen.getByLabelText("Email address");
 
     await waitFor(() => {
       expect(username).toHaveAttribute(
@@ -97,13 +140,23 @@ describe("RegisterForm", () => {
       );
     });
 
-    expect(username).toHaveClass("border-destructive");
-    expect(email).toHaveClass("border-destructive");
+    expect(username).toHaveClass(
+      "border-destructive"
+    );
+
+    expect(email).toHaveClass(
+      "border-destructive"
+    );
 
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
-  it("submits only backend-required fields", async () => {
+  // ========================================
+  // REGISTRATION SUCCESS
+  // ========================================
+
+  it("submits only required fields and redirects after HTTP 201", async () => {
     const user = userEvent.setup();
 
     fetchMock.mockResolvedValue(
@@ -116,27 +169,28 @@ describe("RegisterForm", () => {
     render(<RegisterForm />);
 
     await fillValidForm(user);
+    await submitForm(user);
 
-    await user.click(
-      screen.getByRole("button", {
-        name: /create account/i,
-      })
-    );
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/login?registered=1"
+      );
+    });
 
-    expect(
-      await screen.findByText(
-        "Account created successfully!"
-      )
-    ).toBeInTheDocument();
-
+    expect(replaceMock).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledOnce();
 
     const [url, options] = fetchMock.mock.calls[0];
 
-    expect(url).toBe("/api/v1/auth/register");
+    expect(url).toBe(
+      "/api/v1/auth/register"
+    );
+
     expect(options?.method).toBe("POST");
 
-    const payload = JSON.parse(String(options?.body));
+    const payload = JSON.parse(
+      String(options?.body)
+    );
 
     expect(payload).toEqual({
       username: "careertrackuser",
@@ -148,14 +202,21 @@ describe("RegisterForm", () => {
       "confirmPassword"
     );
 
-    expect(payload).not.toHaveProperty("role");
+    expect(payload).not.toHaveProperty(
+      "role"
+    );
   });
 
-  it("shows backend duplicate email error", async () => {
+  // ========================================
+  // DUPLICATE EMAIL
+  // ========================================
+
+  it("shows duplicate email error without redirect", async () => {
     const user = userEvent.setup();
 
     fetchMock.mockResolvedValue(
       mockResponse(409, {
+        code: "409",
         message: "Email already registered",
       })
     );
@@ -163,12 +224,7 @@ describe("RegisterForm", () => {
     render(<RegisterForm />);
 
     await fillValidForm(user);
-
-    await user.click(
-      screen.getByRole("button", {
-        name: /create account/i,
-      })
-    );
+    await submitForm(user);
 
     expect(
       await screen.findByText(
@@ -176,14 +232,14 @@ describe("RegisterForm", () => {
       )
     ).toBeInTheDocument();
 
-    expect(
-      screen.queryByText(
-        "Account created successfully!"
-      )
-    ).not.toBeInTheDocument();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
-  it("disables submit button while registration is pending", async () => {
+  // ========================================
+  // LOADING & DUPLICATE SUBMISSION
+  // ========================================
+
+  it("disables submission while registration is pending", async () => {
     const user = userEvent.setup();
 
     let resolveFetch!: (response: Response) => void;
@@ -198,20 +254,19 @@ describe("RegisterForm", () => {
     render(<RegisterForm />);
 
     await fillValidForm(user);
+    await submitForm(user);
 
-    await user.click(
-      screen.getByRole("button", {
-        name: /create account/i,
-      })
-    );
+    const pendingButton =
+      await screen.findByRole("button", {
+        name: /creating account/i,
+      });
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", {
-          name: /creating account/i,
-        })
-      ).toBeDisabled();
-    });
+    expect(pendingButton).toBeDisabled();
+
+    // A second click must not issue another request.
+    await user.click(pendingButton);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
 
     await act(async () => {
       resolveFetch(
@@ -222,10 +277,64 @@ describe("RegisterForm", () => {
       );
     });
 
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/login?registered=1"
+      );
+    });
+
+    expect(replaceMock).toHaveBeenCalledOnce();
+  });
+
+  // ========================================
+  // UNEXPECTED RESPONSE
+  // ========================================
+
+  it("does not redirect for unexpected HTTP 200", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockResolvedValue(
+      mockResponse(200, {
+        message: "Unexpected success",
+      })
+    );
+
+    render(<RegisterForm />);
+
+    await fillValidForm(user);
+    await submitForm(user);
+
     expect(
       await screen.findByText(
-        "Account created successfully!"
+        "Unexpected registration response. Please try again."
       )
     ).toBeInTheDocument();
+
+    expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  // ========================================
+  // NETWORK FAILURE
+  // ========================================
+
+  it("shows error without redirect when network fails", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockRejectedValue(
+      new TypeError("fetch failed")
+    );
+
+    render(<RegisterForm />);
+
+    await fillValidForm(user);
+    await submitForm(user);
+
+    expect(
+      await screen.findByText(
+        "Unable to connect to the server. Please try again."
+      )
+    ).toBeInTheDocument();
+
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 });
