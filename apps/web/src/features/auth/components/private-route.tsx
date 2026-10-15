@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "./auth-provider";
+import { SessionLoading } from "@/features/dashboard/components/session-loading";
 
 export function PrivateRoute({
   children,
@@ -21,7 +22,7 @@ export function PrivateRoute({
   }, [status, router]);
 
   if (status === "loading") {
-    return <p>Checking your session...</p>;
+    return <SessionLoading />;
   }
 
   if (status === "unavailable") {
