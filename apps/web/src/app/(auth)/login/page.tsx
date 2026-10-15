@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { LoginForm } from "@/features/auth/components/login-form";
+import { VerifiedNotice } from "@/features/auth/components/verified-notice";
 
 export const metadata: Metadata = {
   title: "Sign In | CareerTrack",
@@ -12,6 +13,10 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <div className="w-full">
+      {/* ====================================
+          PAGE HEADING
+      ==================================== */}
+
       <div className="mb-9 space-y-3">
         <p className="text-xs font-semibold tracking-[0.16em] text-primary">
           WELCOME BACK — 02
@@ -26,6 +31,10 @@ export default function LoginPage() {
         </p>
       </div>
 
+      {/* ====================================
+          VERIFICATION NOTICE + LOGIN FORM
+      ==================================== */}
+
       <Suspense
         fallback={
           <p className="text-sm text-muted-foreground">
@@ -33,7 +42,10 @@ export default function LoginPage() {
           </p>
         }
       >
-        <LoginForm />
+        <div className="space-y-4">
+          <VerifiedNotice />
+          <LoginForm />
+        </div>
       </Suspense>
     </div>
   );
