@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -69,6 +70,8 @@ function getResponseMessage(body: unknown): string | null {
 // ==========================================
 
 export function LoginForm() {
+  const router = useRouter();
+
   // ========================================
   // COMPONENT STATES
   // ========================================
@@ -78,9 +81,6 @@ export function LoginForm() {
 
   const [serverError, setServerError] =
     useState<string | null>(null);
-
-  const [signedIn, setSignedIn] =
-    useState(false);
 
   // ========================================
   // REACT HOOK FORM
@@ -188,15 +188,20 @@ export function LoginForm() {
       // ====================================
 
       if (response.ok && response.status === 200) {
-        // JWT is handled by the Next.js BFF.
-        // Never store JWT in browser storage.
+        // JWT is handled by the Next.js BFF
+        // using HttpOnly cookies.
+        // Never store tokens in localStorage.
 
         reset({
           email: values.email,
           password: "",
         });
 
-        setSignedIn(true);
+        // Navigate to private dashboard.
+        // AuthProvider validates the session
+        // before rendering dashboard content.
+        router.replace("/dashboard");
+
         return;
       }
 
@@ -208,6 +213,7 @@ export function LoginForm() {
         setServerError(
           "Unexpected login response. Please try again."
         );
+
         return;
       }
 
@@ -224,41 +230,6 @@ export function LoginForm() {
         "Unable to connect to the server. Please try again."
       );
     }
-  }
-
-  // ========================================
-  // LOGIN SUCCESS VIEW
-  // ========================================
-
-  if (signedIn) {
-    return (
-      <div
-        role="status"
-        className="rounded-xl border border-primary/30 bg-primary/10 p-5"
-      >
-        <div className="flex items-start gap-3">
-          <div
-            aria-hidden="true"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg text-primary"
-          >
-            ✓
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-base font-semibold text-foreground">
-              Signed in successfully
-            </p>
-
-            <p className="text-sm leading-6 text-muted-foreground">
-              Your authentication session has been
-              created. Access to your private
-              workspace will be enabled after
-              account authorization is connected.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   // ========================================
@@ -367,7 +338,7 @@ export function LoginForm() {
                   : "Show password"
               }
               aria-pressed={showPassword}
-              className="absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              className="absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground transition-colors hover:text-primary disabled:opacity-50"
             >
               {showPassword
                 ? "Hide"

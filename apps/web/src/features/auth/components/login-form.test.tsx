@@ -25,6 +25,24 @@ import {
 
 import userEvent from "@testing-library/user-event";
 
+// ==========================================
+// MOCK NEXT.JS ROUTER
+// ==========================================
+
+const routerMocks = vi.hoisted(() => ({
+  replace: vi.fn(),
+  refresh: vi.fn(),
+  push: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    replace: routerMocks.replace,
+    refresh: routerMocks.refresh,
+    push: routerMocks.push,
+  }),
+}));
+
 import { LoginForm } from "./login-form";
 
 // ==========================================
@@ -113,6 +131,11 @@ const LOGIN_ERROR =
 describe("LoginForm", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+
+    routerMocks.replace.mockClear();
+    routerMocks.refresh.mockClear();
+    routerMocks.push.mockClear();
+
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -140,6 +163,7 @@ describe("LoginForm", () => {
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(routerMocks.replace).not.toHaveBeenCalled();
   });
 
   it("toggles password visibility", async () => {
@@ -178,7 +202,7 @@ describe("LoginForm", () => {
     );
   });
 
-  it("submits credentials and shows success", async () => {
+  it("submits credentials and redirects to dashboard", async () => {
     const user = userEvent.setup();
 
     fetchMock.mockResolvedValue(
@@ -193,11 +217,14 @@ describe("LoginForm", () => {
     await fillForm(user);
     await clickSignIn(user);
 
-    expect(
-      await screen.findByText(
-        "Signed in successfully"
-      )
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(routerMocks.replace).toHaveBeenCalledWith(
+        "/dashboard"
+      );
+    });
+
+    expect(routerMocks.replace).toHaveBeenCalledOnce();
+    expect(routerMocks.refresh).not.toHaveBeenCalled();
 
     expect(fetchMock).toHaveBeenCalledOnce();
 
@@ -234,11 +261,7 @@ describe("LoginForm", () => {
       await screen.findByText(LOGIN_ERROR)
     ).toBeInTheDocument();
 
-    expect(
-      screen.queryByText(
-        "Signed in successfully"
-      )
-    ).not.toBeInTheDocument();
+    expect(routerMocks.replace).not.toHaveBeenCalled();
   });
 
   it("clears stale login error when Create account is clicked", async () => {
@@ -283,6 +306,8 @@ describe("LoginForm", () => {
     expect(
       screen.getByLabelText("Password")
     ).toHaveValue("");
+
+    expect(routerMocks.replace).not.toHaveBeenCalled();
   });
 
   it("clears stale error on browser history navigation", async () => {
@@ -342,6 +367,7 @@ describe("LoginForm", () => {
     await user.click(pendingButton);
 
     expect(fetchMock).toHaveBeenCalledOnce();
+    expect(routerMocks.replace).not.toHaveBeenCalled();
 
     await act(async () => {
       resolveFetch(
@@ -352,14 +378,14 @@ describe("LoginForm", () => {
       );
     });
 
-    expect(
-      await screen.findByText(
-        "Signed in successfully"
-      )
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(routerMocks.replace).toHaveBeenCalledWith(
+        "/dashboard"
+      );
+    });
   });
 
-  it("shows network error without success", async () => {
+  it("shows network error without redirect", async () => {
     const user = userEvent.setup();
 
     fetchMock.mockRejectedValue(
@@ -377,10 +403,6 @@ describe("LoginForm", () => {
       )
     ).toBeInTheDocument();
 
-    expect(
-      screen.queryByText(
-        "Signed in successfully"
-      )
-    ).not.toBeInTheDocument();
+    expect(routerMocks.replace).not.toHaveBeenCalled();
   });
 });
