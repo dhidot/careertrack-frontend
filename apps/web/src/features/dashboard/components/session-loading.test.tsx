@@ -1,11 +1,8 @@
+
 // @vitest-environment jsdom
 
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  cleanup,
-  render,
-  screen,
-} from "@testing-library/react";
 
 import { SessionLoading } from "./session-loading";
 
@@ -14,29 +11,29 @@ afterEach(() => {
 });
 
 describe("SessionLoading", () => {
-  it("renders an accessible loading status", () => {
+  it("renders an accessible workspace loading status", () => {
     render(<SessionLoading />);
 
     expect(
       screen.getByRole("status", {
-        name: "Checking your CareerTrack session",
+        name: "Loading CareerTrack workspace",
       })
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Establishing session")
     ).toBeInTheDocument();
   });
 
-  it("renders CareerTrack branding", () => {
+  it("renders the workspace layout skeleton", () => {
     render(<SessionLoading />);
 
     expect(
-      screen.getByText("CareerTrack")
+      screen.getByRole("complementary")
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText("Your career workspace")
+      screen.getByRole("banner")
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("main")
     ).toBeInTheDocument();
   });
 
