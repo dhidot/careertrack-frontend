@@ -1,6 +1,12 @@
+
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
 import { AppSidebar } from "./app-sidebar";
 import { AppHeader } from "./app-header";
@@ -11,20 +17,38 @@ type AppShellProps = {
 
 const SIDEBAR_STORAGE_KEY = "careertrack.sidebar.collapsed";
 
-export function AppShell({ children }: AppShellProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+const subscribe = () => () => {};
 
-  useEffect(() => {
-    try {
-      setCollapsed(
-        window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true"
-      );
-    } catch {
-      // Continue with expanded sidebar when storage is unavailable.
-    }
-  }, []);
+function useIsClient() {
+  return useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false
+  );
+}
+
+function getInitialCollapsed(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return (
+      window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function AppShell({ children }: AppShellProps) {
+  const isClient = useIsClient();
+
+  const [collapsed, setCollapsed] = useState(
+    getInitialCollapsed
+  );
+
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -70,7 +94,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <AppSidebar
-        collapsed={collapsed}
+        collapsed={isClient ? collapsed : false}
         onToggle={toggleSidebar}
         mobileOpen={mobileOpen}
         onCloseMobile={closeMobile}
