@@ -4,6 +4,7 @@ import { AuthProvider } from "@/features/auth/components/auth-provider";
 import { PrivateRoute } from "@/features/auth/components/private-route";
 import { ServerSessionGuard } from "@/features/auth/components/server-session-guard";
 import { SessionLoading } from "@/features/dashboard/components/session-loading";
+import { AppShell } from "@/features/app-shell/components/app-shell";
 
 export default function AppLayout({
   children,
@@ -14,7 +15,9 @@ export default function AppLayout({
     <Suspense fallback={<SessionLoading />}>
       <ServerSessionGuard>
         <AuthProvider>
-          <PrivateRoute>{children}</PrivateRoute>
+          <PrivateRoute>
+            <AppShell>{children}</AppShell>
+          </PrivateRoute>
         </AuthProvider>
       </ServerSessionGuard>
     </Suspense>
