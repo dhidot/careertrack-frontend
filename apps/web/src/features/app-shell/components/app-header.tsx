@@ -1,7 +1,9 @@
+
 "use client";
 
-import { useAuth } from "@/features/auth/components/auth-provider";
 import { ThemeToggle } from "@careertrack/ui/components/theme-toggle";
+
+import { ProfileMenu } from "./profile-menu";
 
 type AppHeaderProps = {
   mobileOpen: boolean;
@@ -12,14 +14,8 @@ export function AppHeader({
   mobileOpen,
   onOpenMobile,
 }: AppHeaderProps) {
-  const { user } = useAuth();
-
-  const username = user?.username ?? "User";
-  const initial = username.charAt(0).toUpperCase();
-
   return (
     <header className="flex h-20 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 sm:px-6 lg:px-8">
-      {/* Left: Navigation + Page Title */}
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
@@ -52,33 +48,15 @@ export function AppHeader({
         </div>
       </div>
 
-      {/* Right: Appearance + User Profile */}
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
         <ThemeToggle />
 
-        {/* Visual separation */}
         <div
           aria-hidden="true"
           className="h-7 w-px bg-border"
         />
 
-        {/* User information */}
-        <div className="hidden min-w-0 text-right sm:block">
-          <p className="max-w-36 truncate text-sm font-semibold text-foreground">
-            {username}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Personal workspace
-          </p>
-        </div>
-
-        {/* User avatar */}
-        <div
-          aria-label={`${username} profile`}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-sm font-semibold text-secondary-foreground"
-        >
-          {initial}
-        </div>
+        <ProfileMenu />
       </div>
     </header>
   );
