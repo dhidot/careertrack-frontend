@@ -1,6 +1,13 @@
+
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   afterEach,
   beforeEach,
@@ -11,6 +18,8 @@ import {
 } from "vitest";
 
 import { AppShell } from "./app-shell";
+
+const SIDEBAR_STORAGE_KEY = "careertrack.sidebar.collapsed";
 
 const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
@@ -27,10 +36,14 @@ vi.mock("@/features/auth/components/auth-provider", () => ({
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
+  vi.clearAllMocks();
 });
 
 describe("AppShell", () => {
   beforeEach(() => {
+    window.localStorage.clear();
+
     mocks.usePathname.mockReturnValue("/dashboard");
 
     mocks.useAuth.mockReturnValue({
@@ -79,9 +92,18 @@ describe("AppShell", () => {
       })
     ).not.toBeInTheDocument();
 
-    expect(
-      screen.getByText("Applications")
-    ).toHaveAttribute("aria-disabled", "true");
+    const sidebar = screen.getByLabelText(
+      "Application sidebar"
+    );
+
+    const applications = sidebar.querySelector(
+      '[aria-label="Applications"]'
+    );
+
+    expect(applications).toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
   });
 
   it("renders authenticated user profile", () => {
@@ -102,5 +124,141 @@ describe("AppShell", () => {
     expect(
       screen.getByRole("main")
     ).toHaveAttribute("id", "main-content");
+  });
+
+  it("collapses and expands the desktop sidebar", () => {
+    render(<AppShell>Content</AppShell>);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Collapse sidebar",
+      })
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Expand sidebar",
+      })
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByLabelText("Application sidebar")
+    ).toHaveClass("w-[72px]");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Expand sidebar",
+      })
+    );
+
+    expect(
+      screen.getByLabelText("Application sidebar")
+    ).toHaveClass("w-64");
+  });
+
+  it("persists collapsed sidebar preference", async () => {
+    const { unmount } = render(
+      <AppShell>Content</AppShell>
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Collapse sidebar",
+      })
+    );
+
+    expect(
+      window.localStorage.getItem(SIDEBAR_STORAGE_KEY)
+    ).toBe("true");
+
+    unmount();
+
+    render(<AppShell>Content</AppShell>);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "Expand sidebar",
+        })
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("opens and closes mobile navigation", () => {
+    render(<AppShell>Content</AppShell>);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open navigation",
+      })
+    );
+
+    expect(
+      screen.getByLabelText("Mobile sidebar")
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", {
+        name: "Open navigation",
+      })
+    ).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Close navigation",
+      })
+    );
+
+    expect(
+      screen.queryByLabelText("Mobile sidebar")
+    ).not.toBeInTheDocument();
+  });
+
+  it("closes mobile navigation with Escape", () => {
+    render(<AppShell>Content</AppShell>);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open navigation",
+      })
+    );
+
+    expect(
+      screen.getByLabelText("Mobile sidebar")
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(document, {
+      key: "Escape",
+    });
+
+    expect(
+      screen.queryByLabelText("Mobile sidebar")
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps unfinished mobile routes disabled", () => {
+    render(<AppShell>Content</AppShell>);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open navigation",
+      })
+    );
+
+    const mobileNav = screen.getByRole("navigation", {
+      name: "Mobile navigation",
+    });
+
+    expect(
+      mobileNav.querySelector(
+        'a[href="/applications"]'
+      )
+    ).toBeNull();
+
+    expect(
+      mobileNav.querySelector(
+        '[aria-label="Applications"]'
+      )
+    ).toHaveAttribute("aria-disabled", "true");
   });
 });
