@@ -114,7 +114,13 @@ describe("AppShell", () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByLabelText("didot profile")
+      screen.getByRole("button", {
+        name: "Open profile menu",
+      })
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("didot")
     ).toBeInTheDocument();
   });
 
