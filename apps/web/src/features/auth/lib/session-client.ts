@@ -177,3 +177,59 @@ export function getSession(): Promise<SessionResult> {
 
   return request;
 }
+
+// =====================================================
+// SIGN OUT THROUGH BFF
+// =====================================================
+
+export type SignOutScope = "current" | "all";
+
+export type SignOutResult =
+  | "signed-out"
+  | "rate-limited"
+  | "unavailable";
+
+/**
+ * "current": the BFF clears cookies on every same-origin
+ * request, so 200 means the local session is over even if
+ * Auth Service was unreachable.
+ *
+ * "all": only "signed-out" means every device was
+ * revoked. Other results keep the user logged in here.
+ *
+ * A network error means the BFF never ran, so cookies are
+ * still present: report "unavailable" for both scopes.
+ */
+export async function signOut(
+  scope: SignOutScope
+): Promise<SignOutResult> {
+  const endpoint =
+    scope === "all"
+      ? "/api/v1/auth/logout-all"
+      : "/api/v1/auth/logout";
+
+  // Drop any cached in-flight /me so a late result can't
+  // resurrect the session in this tab.
+  pendingSession = null;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    // 401 from logout-all = session already gone.
+    if (response.status === 200 || response.status === 401) {
+      return "signed-out";
+    }
+
+    if (response.status === 429) {
+      return "rate-limited";
+    }
+
+    return "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
