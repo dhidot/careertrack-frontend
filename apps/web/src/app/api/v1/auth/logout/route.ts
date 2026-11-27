@@ -6,6 +6,7 @@ import {
   isSameOrigin,
   postToGateway,
   readSessionCookies,
+  gatewayClientHeaders,
   resolveGatewayEndpoint,
   rotateTokens,
 } from "@/features/auth/lib/auth-upstream";
@@ -23,7 +24,8 @@ import {
 
 async function revokeOnServer(
   accessToken: string | null,
-  refreshToken: string
+  refreshToken: string,
+  clientHeaders: Record<string, string>
 ): Promise<boolean> {
   const endpoint = resolveGatewayEndpoint("/api/auth/logout");
 
@@ -37,6 +39,7 @@ async function revokeOnServer(
       const upstream = await postToGateway(endpoint, {
         accessToken,
         body: { refreshToken },
+        clientHeaders,
       });
 
       if (upstream.status === 200) {
@@ -52,7 +55,7 @@ async function revokeOnServer(
     // authenticate the logout). Rotate once, then revoke
     // the freshly issued refresh token. The old one was
     // already revoked by the rotation itself.
-    const rotated = await rotateTokens(refreshToken);
+    const rotated = await rotateTokens(refreshToken, clientHeaders);
 
     if (!rotated) {
       // Refresh token already invalid: nothing left to
@@ -63,6 +66,7 @@ async function revokeOnServer(
     const retry = await postToGateway(endpoint, {
       accessToken: rotated.accessToken,
       body: { refreshToken: rotated.refreshToken },
+      clientHeaders,
     });
 
     return retry.status === 200;
@@ -82,7 +86,11 @@ export async function POST(request: NextRequest) {
   const { accessToken, refreshToken } = readSessionCookies(request);
 
   const sessionRevoked = refreshToken
-    ? await revokeOnServer(accessToken, refreshToken)
+    ? await revokeOnServer(
+        accessToken,
+        refreshToken,
+        gatewayClientHeaders(request)
+      )
     : false;
 
   const response = NextResponse.json(

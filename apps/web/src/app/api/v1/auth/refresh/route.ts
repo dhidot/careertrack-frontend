@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { gatewayClientHeaders } from "@/features/auth/lib/auth-upstream";
+
 // =====================================================
 // CONSTANTS
 // =====================================================
@@ -135,6 +137,7 @@ export async function POST(request: NextRequest) {
     const upstream = await fetch(endpoint, {
       method: "POST",
       headers: {
+        ...gatewayClientHeaders(request),
         "Content-Type": "application/json",
         Accept: "application/json",
       },

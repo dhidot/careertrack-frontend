@@ -2,6 +2,8 @@
 // to call the API Gateway with the user's HttpOnly cookies.
 // Never import this module from client components.
 
+import { isIP } from "node:net";
+
 import type { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -106,6 +108,62 @@ export function setSessionCookies(
 }
 
 // =====================================================
+// CLIENT IP FORWARDING (per-client rate limiting)
+// =====================================================
+//
+// Every request reaches the gateway from Vercel's servers, so without
+// this the gateway sees one shared IP for all users and rate limits
+// everyone together. The BFF forwards the browser's IP, signed with a
+// shared secret the gateway checks (GATEWAY_BFF_KEY on both sides).
+
+export const CLIENT_IP_HEADER = "X-CareerTrack-Client-IP";
+export const BFF_KEY_HEADER = "X-CareerTrack-BFF-Key";
+
+/**
+ * The browser's IP as seen by the platform in front of Next.js.
+ * On Vercel, x-real-ip / x-forwarded-for are set by Vercel's edge and
+ * cannot be forged by the client. Behind another proxy, make sure it
+ * overwrites these headers before trusting them.
+ */
+export function clientIpOf(request: Request): string | null {
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp && isIP(realIp)) {
+    return realIp;
+  }
+
+  const firstHop = request.headers
+    .get("x-forwarded-for")
+    ?.split(",")[0]
+    ?.trim();
+  if (firstHop && isIP(firstHop)) {
+    return firstHop;
+  }
+
+  return null;
+}
+
+/**
+ * Headers to add to gateway calls. Empty when the key is not
+ * configured or the IP is unknown, in which case the gateway falls
+ * back to the address it sees (shared Vercel IP).
+ */
+export function gatewayClientHeaders(
+  request: Request
+): Record<string, string> {
+  const key = process.env.GATEWAY_BFF_KEY?.trim();
+  const ip = clientIpOf(request);
+
+  if (!key || !ip) {
+    return {};
+  }
+
+  return {
+    [CLIENT_IP_HEADER]: ip,
+    [BFF_KEY_HEADER]: key,
+  };
+}
+
+// =====================================================
 // GATEWAY CALLS
 // =====================================================
 
@@ -143,9 +201,14 @@ export function resolveGatewayEndpoint(path: string): URL | null {
 
 export function postToGateway(
   endpoint: URL,
-  options: { accessToken?: string; body?: unknown }
+  options: {
+    accessToken?: string;
+    body?: unknown;
+    clientHeaders?: Record<string, string>;
+  }
 ): Promise<Response> {
   const headers: Record<string, string> = {
+    ...options.clientHeaders,
     Accept: "application/json",
   };
 
@@ -178,7 +241,8 @@ export function postToGateway(
  * Network errors propagate to the caller.
  */
 export async function rotateTokens(
-  refreshToken: string
+  refreshToken: string,
+  clientHeaders: Record<string, string> = {}
 ): Promise<TokenPair | null> {
   const endpoint = resolveGatewayEndpoint("/api/auth/refresh");
 
@@ -188,6 +252,7 @@ export async function rotateTokens(
 
   const upstream = await postToGateway(endpoint, {
     body: { refreshToken },
+    clientHeaders,
   });
 
   if (upstream.status !== 200) {
