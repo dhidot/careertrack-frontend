@@ -7,6 +7,7 @@ import {
   isTimeoutError,
   postToGateway,
   readSessionCookies,
+  gatewayClientHeaders,
   resolveGatewayEndpoint,
   rotateTokens,
   setSessionCookies,
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const clientHeaders = gatewayClientHeaders(request);
   let rotated: TokenPair | null = null;
 
   // If tokens were rotated, the browser's old refresh
@@ -92,7 +94,10 @@ export async function POST(request: NextRequest) {
     let upstreamStatus = 401;
 
     if (accessToken) {
-      const upstream = await postToGateway(endpoint, { accessToken });
+      const upstream = await postToGateway(endpoint, {
+        accessToken,
+        clientHeaders,
+      });
       upstreamStatus = upstream.status;
     }
 
@@ -102,7 +107,7 @@ export async function POST(request: NextRequest) {
         return sessionEnded();
       }
 
-      rotated = await rotateTokens(refreshToken);
+      rotated = await rotateTokens(refreshToken, clientHeaders);
 
       if (!rotated) {
         return sessionEnded();
@@ -110,6 +115,7 @@ export async function POST(request: NextRequest) {
 
       const retry = await postToGateway(endpoint, {
         accessToken: rotated.accessToken,
+        clientHeaders,
       });
       upstreamStatus = retry.status;
 

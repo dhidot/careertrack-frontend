@@ -1,6 +1,7 @@
 
 import { NextResponse } from "next/server";
 
+import { gatewayClientHeaders } from "@/features/auth/lib/auth-upstream";
 import { registerRequestSchema } from "@/features/auth/schemas/register-schema";
 
 type BackendResponse = {
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
       {
         method: "POST",
         headers: {
+          ...gatewayClientHeaders(request),
           "Content-Type": "application/json",
         },
         body: JSON.stringify(validation.data),

@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { gatewayClientHeaders } from "@/features/auth/lib/auth-upstream";
 import { loginRequestSchema } from "@/features/auth/schemas/login-schema";
 
 // ==========================================
@@ -142,6 +143,7 @@ export async function POST(request: Request) {
     const upstream = await fetch(endpoint, {
       method: "POST",
       headers: {
+        ...gatewayClientHeaders(request),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(validation.data),
